@@ -1,0 +1,6 @@
+{
+  "summary":  "Kế hoạch kiến trúc và triển khai ứng dụng Quizlet Clone hoàn chỉnh với tính năng tự động tạo thẻ từ PDF bằng AI (Gemini), 4 chế độ học tập (Flashcards, Learn, Match, Test), hỗ trợ Dark/Light mode và lưu trữ Firebase Firestore.",
+  "updatedAt":  "2026-11-01T00:45:36.393737276Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

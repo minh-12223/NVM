@@ -1,0 +1,6 @@
+{
+  "name": "Quizlet AI - Học Thông Minh & Tạo Thẻ Từ PDF",
+  "description": "Nền tảng học tập thẻ ghi nhớ chuẩn Quizlet tích hợp AI tự động tạo thẻ từ tệp PDF, 4 chế độ học (Flashcards, Learn, Match, Test) và đồng bộ đám mây Firebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

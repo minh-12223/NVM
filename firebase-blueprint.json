@@ -1,0 +1,180 @@
+{
+  "entities": {
+    "StudySet": {
+      "title": "StudySet",
+      "description": "A flashcard study set created manually or extracted from PDF via AI.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150,
+          "description": "Title of the study set"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Summary description of the study set"
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Category tag of the study set"
+        },
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the user who created the set"
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Display name of the author"
+        },
+        "cardCount": {
+          "type": "number",
+          "description": "Total number of flashcards in the set"
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the study set is publicly visible"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated"
+        }
+      },
+      "required": ["title", "description", "category", "authorId", "authorName", "cardCount", "isPublic", "createdAt", "updatedAt"]
+    },
+    "Flashcard": {
+      "title": "Flashcard",
+      "description": "An individual flashcard inside a StudySet.",
+      "type": "object",
+      "properties": {
+        "setId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent StudySet document ID"
+        },
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the owner"
+        },
+        "term": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Front side term or question"
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1500,
+          "description": "Back side definition or answer"
+        },
+        "hint": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Optional memory hint or mnemonic"
+        },
+        "example": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional usage example or context"
+        },
+        "order": {
+          "type": "number",
+          "description": "Position index in the study set"
+        },
+        "isStarred": {
+          "type": "boolean",
+          "description": "Whether the card is marked as important/starred"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["new", "learning", "mastered"],
+          "description": "Mastery status of the card"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated"
+        }
+      },
+      "required": ["setId", "authorId", "term", "definition", "hint", "example", "order", "isStarred", "status", "createdAt", "updatedAt"]
+    },
+    "StudyStats": {
+      "title": "StudyStats",
+      "description": "User study performance metrics for a specific study set.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the learner"
+        },
+        "setId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "StudySet ID"
+        },
+        "bestMatchTimeSec": {
+          "type": "number",
+          "description": "Fastest time in seconds in Match game"
+        },
+        "lastTestScore": {
+          "type": "number",
+          "description": "Latest Test mode percentage score (0-100)"
+        },
+        "masteredCount": {
+          "type": "number",
+          "description": "Count of mastered cards"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated"
+        }
+      },
+      "required": ["userId", "setId", "bestMatchTimeSec", "lastTestScore", "masteredCount", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/studySets/{setId}": {
+      "schema": { "$ref": "#/entities/StudySet" },
+      "description": "Top-level collection of flashcard study sets"
+    },
+    "/studySets/{setId}/cards/{cardId}": {
+      "schema": { "$ref": "#/entities/Flashcard" },
+      "description": "Subcollection of flashcards belonging to a study set"
+    },
+    "/studyStats/{statId}": {
+      "schema": { "$ref": "#/entities/StudyStats" },
+      "description": "User progress and game stats per study set"
+    }
+  }
+}

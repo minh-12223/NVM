@@ -1,0 +1,172 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Validation Blueprint: StudySet
+    function isValidStudySet(data) {
+      return data.keys().hasAll(['title', 'description', 'category', 'authorId', 'authorName', 'cardCount', 'isPublic', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'description', 'category', 'authorId', 'authorName', 'cardCount', 'isPublic', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 150
+        && data.description is string && data.description.size() <= 500
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 60
+        && data.authorId is string && isValidId(data.authorId) && data.authorId == request.auth.uid
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.cardCount is number && data.cardCount >= 0 && data.cardCount <= 500
+        && data.isPublic is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Flashcard
+    function isValidFlashcard(data, setId) {
+      return data.keys().hasAll(['setId', 'authorId', 'term', 'definition', 'hint', 'example', 'order', 'isStarred', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['setId', 'authorId', 'term', 'definition', 'hint', 'example', 'order', 'isStarred', 'status', 'createdAt', 'updatedAt'])
+        && data.setId is string && isValidId(data.setId) && data.setId == setId
+        && data.authorId is string && isValidId(data.authorId) && data.authorId == request.auth.uid
+        && data.term is string && data.term.size() >= 1 && data.term.size() <= 500
+        && data.definition is string && data.definition.size() >= 1 && data.definition.size() <= 1500
+        && data.hint is string && data.hint.size() <= 300
+        && data.example is string && data.example.size() <= 500
+        && data.order is number && data.order >= 0 && data.order <= 1000
+        && data.isStarred is bool
+        && data.status is string && data.status.size() <= 20 && (data.status == 'new' || data.status == 'learning' || data.status == 'mastered')
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: StudyStats
+    function isValidStudyStats(data) {
+      return data.keys().hasAll(['userId', 'setId', 'bestMatchTimeSec', 'lastTestScore', 'masteredCount', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'setId', 'bestMatchTimeSec', 'lastTestScore', 'masteredCount', 'updatedAt'])
+        && data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid
+        && data.setId is string && isValidId(data.setId)
+        && data.bestMatchTimeSec is number && data.bestMatchTimeSec >= 0 && data.bestMatchTimeSec <= 86400
+        && data.lastTestScore is number && data.lastTestScore >= 0 && data.lastTestScore <= 100
+        && data.masteredCount is number && data.masteredCount >= 0 && data.masteredCount <= 500
+        && data.updatedAt is timestamp;
+    }
+
+    // Collection: studySets
+    match /studySets/{setId} {
+      allow get: if isValidId(setId) && (existing().isPublic == true || (isSignedIn() && existing().authorId == request.auth.uid));
+      allow list: if existing().isPublic == true || (isSignedIn() && existing().authorId == request.auth.uid);
+
+      allow create: if isVerifiedUser()
+        && isValidId(setId)
+        && isValidStudySet(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(setId)
+        && isValidStudySet(incoming())
+        && existing().authorId == request.auth.uid
+        && incoming().authorId == existing().authorId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'cardCount', 'isPublic', 'updatedAt'])
+        );
+
+      allow delete: if isVerifiedUser()
+        && isValidId(setId)
+        && existing().authorId == request.auth.uid;
+
+      // Subcollection: cards
+      match /cards/{cardId} {
+        allow get: if isValidId(setId) && isValidId(cardId) && (
+          (isSignedIn() && existing().authorId == request.auth.uid) ||
+          get(/databases/$(database)/documents/studySets/$(setId)).data.isPublic == true
+        );
+
+        allow list: if isValidId(setId) && (
+          (isSignedIn() && existing().authorId == request.auth.uid)
+        );
+
+        allow create: if isVerifiedUser()
+          && isValidId(setId)
+          && isValidId(cardId)
+          && isValidFlashcard(incoming(), setId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/studySets/$(setId))
+          && get(/databases/$(database)/documents/studySets/$(setId)).data.authorId == request.auth.uid;
+
+        allow update: if isVerifiedUser()
+          && isValidId(setId)
+          && isValidId(cardId)
+          && isValidFlashcard(incoming(), setId)
+          && existing().authorId == request.auth.uid
+          && incoming().authorId == existing().authorId
+          && incoming().setId == existing().setId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/studySets/$(setId))
+          && get(/databases/$(database)/documents/studySets/$(setId)).data.authorId == request.auth.uid
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['term', 'definition', 'hint', 'example', 'order', 'isStarred', 'status', 'updatedAt'])
+          );
+
+        allow delete: if isVerifiedUser()
+          && isValidId(setId)
+          && isValidId(cardId)
+          && existing().authorId == request.auth.uid
+          && exists(/databases/$(database)/documents/studySets/$(setId))
+          && get(/databases/$(database)/documents/studySets/$(setId)).data.authorId == request.auth.uid;
+      }
+    }
+
+    // Collection: studyStats
+    match /studyStats/{statId} {
+      allow get: if isSignedIn() && isValidId(statId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isVerifiedUser()
+        && isValidId(statId)
+        && isValidStudyStats(incoming())
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/studySets/$(incoming().setId));
+
+      allow update: if isVerifiedUser()
+        && isValidId(statId)
+        && isValidStudyStats(incoming())
+        && existing().userId == request.auth.uid
+        && incoming().userId == existing().userId
+        && incoming().setId == existing().setId
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['bestMatchTimeSec', 'lastTestScore', 'masteredCount', 'updatedAt'])
+        );
+
+      allow delete: if isVerifiedUser()
+        && isValidId(statId)
+        && existing().userId == request.auth.uid;
+    }
+  }
+}
